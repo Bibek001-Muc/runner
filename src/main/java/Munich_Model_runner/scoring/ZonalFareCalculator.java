@@ -194,9 +194,7 @@ public class    ZonalFareCalculator {
         }
 
         for (Path candidate : Arrays.asList(
-                Paths.get("scenarios", "Input_and_outputFile", "Other_input_and_output_file", "stops.txt"),
-                Paths.get("scenarios", "Input_and_outputFile", "Other_input_and_output_file", "gtfs_unpacked", "stops.txt"),
-                Paths.get("..", "..", "bibek final", "output", "gtfs_unpacked", "stops.txt")
+                Paths.get("input", "stops.txt")
         )) {
             Path absolute = candidate.toAbsolutePath().normalize();
             if (Files.isRegularFile(absolute)) {
@@ -205,7 +203,7 @@ public class    ZonalFareCalculator {
         }
 
         throw new IllegalStateException(
-                "GTFS stops.txt not found. Put stops.txt in scenarios/Input_and_outputFile/Other_input_and_output_file, "
+                "GTFS stops.txt not found. Expected file at input/stops.txt, "
                         + "or set -D" + GTFS_STOPS_PROPERTY + "=<path>, or set " + GTFS_STOPS_ENV + ".");
     }
 

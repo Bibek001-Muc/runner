@@ -49,8 +49,8 @@ public class run_Simulation_custom {
         emptyConfig.transit().setTransitScheduleFile(".\\scenarios\\Input_and_outputFile\\Other_input_and_output_file\\munichschedulemapped.xml");
         emptyConfig.transit().setVehiclesFile(".\\scenarios\\Input_and_outputFile\\Other_input_and_output_file\\MunichVehicles.xml");
         emptyConfig.transit().setTransitModes(Sets.newHashSet(TransportMode.pt));
-        emptyConfig.qsim().setFlowCapFactor(0.05);
-        emptyConfig.qsim().setStorageCapFactor(0.05);
+        emptyConfig.qsim().setFlowCapFactor(0.1);
+        emptyConfig.qsim().setStorageCapFactor(0.18);
         emptyConfig.qsim().setStartTime(0);
         emptyConfig.qsim().setEndTime(7 * 24 * 3600); // 7-day weekly simulation
         emptyConfig.qsim().setSnapshotPeriod(0);
@@ -192,7 +192,7 @@ public class run_Simulation_custom {
         emptyConfig.strategy().addStrategySettings(changeExpBeta);
         emptyConfig.controler().setOutputDirectory(".\\scenarios\\Input_and_outputFile\\Custom_output");
         emptyConfig.controler().setFirstIteration(0);
-        emptyConfig.controler().setLastIteration(30);
+        emptyConfig.controler().setLastIteration(150);
         emptyConfig.controler().setOverwriteFileSetting(
                 OutputDirectoryHierarchy.OverwriteFileSetting.deleteDirectoryIfExists);
         Scenario myScenario = ScenarioUtils.loadScenario(emptyConfig);
