@@ -3,6 +3,7 @@ package Munich_Model_runner.Simulation_config_run;
 import com.google.common.collect.Sets;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.TransportMode;
+import org.matsim.api.core.v01.network.Link;
 import org.matsim.contrib.bicycle.BicycleConfigGroup;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
@@ -13,11 +14,15 @@ import org.matsim.core.controler.AbstractModule;
 import org.matsim.core.controler.Controler;
 import org.matsim.core.controler.OutputDirectoryHierarchy;
 import org.matsim.core.population.algorithms.PermissibleModesCalculator;
+import org.matsim.core.replanning.modules.SubtourModeChoice;
 import org.matsim.core.replanning.strategies.DefaultPlanStrategiesModule;
 import org.matsim.core.scenario.ScenarioUtils;
 import org.matsim.core.utils.geometry.transformations.TransformationFactory;
 import Munich_Model_runner.scoring.CustomScoringFunctionFactory;
 import Munich_Model_runner.replanning.LicensePermissibleModesCalculator;
+
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Custom simulation runner — 7-day weekly plans with:
@@ -57,10 +62,14 @@ public class run_Simulation_custom {
         emptyConfig.planCalcScore().setPerforming_utils_hr(6);
         emptyConfig.planCalcScore().setMarginalUtilityOfMoney(1.0);           // β_money = 1
         emptyConfig.planCalcScore().setMarginalUtlOfWaiting_utils_hr(-7.16); // PT wait VTTS
-        emptyConfig.plansCalcRoute().setNetworkModes(Sets.newHashSet("car"));
+        // car_passenger is a NETWORK routing mode: legs are routed on the car
+        // network using the congested car travel times of the previous
+        // iteration (see travel time binding below). Because it is NOT a
+        // qsim main mode, the mobsim teleports the agent along that route
+        // using the congested travel time — it adds no vehicle to the flow.
+        emptyConfig.plansCalcRoute().setNetworkModes(Sets.newHashSet("car", "car_passenger"));
         emptyConfig.plansCalcRoute().setTeleportedModeSpeed("walk", 5.0 / 3.6);
         emptyConfig.plansCalcRoute().setTeleportedModeSpeed("bike", 15.0 / 3.6);
-        emptyConfig.plansCalcRoute().setTeleportedModeSpeed("car_passenger", 15.0 / 3.6);
         // ── Mode parameters ────────────────────────────────────────────────
         // Base values below are defaults only.
         // CustomLegScoring overrides them dynamically per leg using VTTS.
@@ -134,6 +143,12 @@ public class run_Simulation_custom {
         smc.setModes(new String[] {"car", "pt", "bike", "walk"});
         smc.setChainBasedModes(new String[] {"car", "bike"});
         smc.setConsiderCarAvailability(true);
+        // Fixed car_passenger mode share: fromSpecifiedModesToSpecifiedModes
+        // means only subtours whose CURRENT mode is in the modes list above
+        // are candidates for a switch. car_passenger is not listed, so its
+        // legs are never converted to another mode, and no agent can switch
+        // to car_passenger either (it is not an offered target mode).
+        smc.setBehavior(SubtourModeChoice.Behavior.fromSpecifiedModesToSpecifiedModes);
 
         // ── Strategy ───────────────────────────────────────────────────────
         // ReRoute 0.6  + SubtourModeChoice 0.2  + SelectRandom 0.2
@@ -162,6 +177,16 @@ public class run_Simulation_custom {
         emptyConfig.controler().setOverwriteFileSetting(
                 OutputDirectoryHierarchy.OverwriteFileSetting.deleteDirectoryIfExists);
         Scenario myScenario = ScenarioUtils.loadScenario(emptyConfig);
+        // The router only considers links whose allowedModes contain the
+        // routing mode. The network file only tags "car", so open every car
+        // link to car_passenger — routing then follows the car network.
+        for (Link link : myScenario.getNetwork().getLinks().values()) {
+            if (link.getAllowedModes().contains(TransportMode.car)) {
+                Set<String> allowed = new HashSet<>(link.getAllowedModes());
+                allowed.add("car_passenger");
+                link.setAllowedModes(allowed);
+            }
+        }
         Controler myControler = new Controler(myScenario);
         // Register custom scoring + license-aware mode availability.
         //   - bindScoringFunctionFactory: our VTTS/fare/transfer scoring
@@ -173,6 +198,11 @@ public class run_Simulation_custom {
             public void install() {
                 bindScoringFunctionFactory().to(CustomScoringFunctionFactory.class);
                 bind(PermissibleModesCalculator.class).to(LicensePermissibleModesCalculator.class);
+                // Route car_passenger with the CAR mode's congested travel
+                // time (TravelTimeCalculator of the previous iteration) and
+                // the car disutility — same wiring MATSim uses for "ride".
+                addTravelTimeBinding("car_passenger").to(networkTravelTime());
+                addTravelDisutilityFactoryBinding("car_passenger").to(carTravelDisutilityFactoryKey());
             }
         });
         myControler.run();

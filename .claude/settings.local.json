@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Bibek Karki\\\\Desktop\\\\thesis\\\\runner\\\\Munich_Model_runner\" -Recurse -File)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(git *)"
+    ]
+  }
+}

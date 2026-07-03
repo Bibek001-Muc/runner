@@ -3,16 +3,21 @@ package Munich_Model_runner.Simulation_config_run;
 import com.google.common.collect.Sets;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.TransportMode;
+import org.matsim.api.core.v01.network.Link;
 import org.matsim.contrib.bicycle.BicycleConfigGroup;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.config.groups.PlanCalcScoreConfigGroup;
 import org.matsim.core.config.groups.StrategyConfigGroup;
+import org.matsim.core.controler.AbstractModule;
 import org.matsim.core.controler.Controler;
 import org.matsim.core.controler.OutputDirectoryHierarchy;
 import org.matsim.core.replanning.strategies.DefaultPlanStrategiesModule;
 import org.matsim.core.scenario.ScenarioUtils;
 import org.matsim.core.utils.geometry.transformations.TransformationFactory;
+
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Baseline simulation runner — standard MATSim scoring, no custom VTTS.
@@ -43,10 +48,14 @@ public class run_Simulation_baseline {
         emptyConfig.planCalcScore().setEarlyDeparture_utils_hr(0);
         emptyConfig.planCalcScore().setPerforming_utils_hr(6);
         emptyConfig.planCalcScore().setMarginalUtlOfWaiting_utils_hr(0);
-        emptyConfig.plansCalcRoute().setNetworkModes(Sets.newHashSet("car"));
+        // car_passenger is a NETWORK routing mode: legs are routed on the car
+        // network using the congested car travel times of the previous
+        // iteration (see travel time binding below). Because it is NOT a
+        // qsim main mode, the mobsim teleports the agent along that route
+        // using the congested travel time — it adds no vehicle to the flow.
+        emptyConfig.plansCalcRoute().setNetworkModes(Sets.newHashSet("car", "car_passenger"));
         emptyConfig.plansCalcRoute().setTeleportedModeSpeed("walk", 5.0 / 3.6);
         emptyConfig.plansCalcRoute().setTeleportedModeSpeed("bike", 15.0 / 3.6);
-        emptyConfig.plansCalcRoute().setTeleportedModeSpeed("car_passenger", 15.0 / 3.6);
         PlanCalcScoreConfigGroup.ModeParams busParams = new PlanCalcScoreConfigGroup.ModeParams("bus");
         emptyConfig.planCalcScore().addModeParams(busParams);
         PlanCalcScoreConfigGroup.ModeParams subwayParams = new PlanCalcScoreConfigGroup.ModeParams("subway");
@@ -112,7 +121,27 @@ public class run_Simulation_baseline {
         emptyConfig.controler().setOverwriteFileSetting(
                 OutputDirectoryHierarchy.OverwriteFileSetting.deleteDirectoryIfExists);
         Scenario myScenario = ScenarioUtils.loadScenario(emptyConfig);
+        // The router only considers links whose allowedModes contain the
+        // routing mode. The network file only tags "car", so open every car
+        // link to car_passenger — routing then follows the car network.
+        for (Link link : myScenario.getNetwork().getLinks().values()) {
+            if (link.getAllowedModes().contains(TransportMode.car)) {
+                Set<String> allowed = new HashSet<>(link.getAllowedModes());
+                allowed.add("car_passenger");
+                link.setAllowedModes(allowed);
+            }
+        }
         Controler myControler = new Controler(myScenario);
+        myControler.addOverridingModule(new AbstractModule() {
+            @Override
+            public void install() {
+                // Route car_passenger with the CAR mode's congested travel
+                // time (TravelTimeCalculator of the previous iteration) and
+                // the car disutility — same wiring MATSim uses for "ride".
+                addTravelTimeBinding("car_passenger").to(networkTravelTime());
+                addTravelDisutilityFactoryBinding("car_passenger").to(carTravelDisutilityFactoryKey());
+            }
+        });
         myControler.run();
     }
 }
