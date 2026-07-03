@@ -1,5 +1,7 @@
 package Munich_Model_runner.scoring;
 
+import org.matsim.api.core.v01.events.Event;
+import org.matsim.api.core.v01.events.PersonEntersVehicleEvent;
 import org.matsim.api.core.v01.population.Activity;
 import org.matsim.api.core.v01.population.Leg;
 import org.matsim.api.core.v01.population.Plan;
@@ -13,20 +15,26 @@ import java.util.List;
  * Custom leg scoring applying activity-type-specific VTTS values.
  *
  * Per leg score:
- *   ALL modes : -VTTS(mode, nextActivity) * travelTime_hr
+ *   ALL modes : -VTTS(mode, nextActivity) * inVehicleTime_hr
  *   Car only  : -0.65 euros/km  (total vehicle operating cost)
- *   PT only   : -β_transfer * numTransfers (β_transfer = 1 euro/transfer)
+ *   PT only   : -7.16 euros/hr * waitTime_hr  (stop wait, from events)
+ *               -β_transfer * numTransfers (β_transfer = 1 euro/transfer)
  *
- * PT wait time scored globally via config (7.16 euros/hr).
+ * PT wait time = PersonEntersVehicleEvent time - leg departure time.
+ * The remainder of the pt leg (in-vehicle time) is scored at the
+ * activity-specific PT VTTS.
  * Plan is preprocessed once in constructor for efficiency.
  */
-public class CustomLegScoring implements SumScoringFunction.LegScoring {
+public class CustomLegScoring implements SumScoringFunction.LegScoring,
+        SumScoringFunction.ArbitraryEventScoring {
     private static final double CAR_COST_PER_KM = 0.65; // euros/km
     private static final double BETA_TRANSFER   = 1.0;  // euros/transfer
+    private static final double PT_WAIT_VTTS    = VTTSProvider.PT_WAIT_TIME; // 7.16 euros/hr
     private final List<String>  nextActivityPerLeg = new ArrayList<>();
     private final List<Integer> transfersPerLeg    = new ArrayList<>();
     private int    legIndex = 0;
     private double score    = 0.0;
+    private double lastEnterVehicleTime = Double.NaN;
 
     public CustomLegScoring(Plan plan) {
         preprocessPlan(plan);
@@ -102,6 +110,14 @@ public class CustomLegScoring implements SumScoringFunction.LegScoring {
         }
     }
 
+    /** Called for all events of this agent; we only need vehicle entries. */
+    @Override
+    public void handleEvent(Event event) {
+        if (event instanceof PersonEntersVehicleEvent) {
+            lastEnterVehicleTime = event.getTime();
+        }
+    }
+
     @Override
     public void handleLeg(Leg leg) {
         String mode      = leg.getMode();
@@ -109,11 +125,24 @@ public class CustomLegScoring implements SumScoringFunction.LegScoring {
                 ? nextActivityPerLeg.get(legIndex) : "other";
         int    transfers = legIndex < transfersPerLeg.size()
                 ? transfersPerLeg.get(legIndex) : 0;
-        double travelTimeHr = leg.getTravelTime().isDefined()
-                ? leg.getTravelTime().seconds() / 3600.0
+        double travelTimeSec = leg.getTravelTime().isDefined()
+                ? leg.getTravelTime().seconds()
                 : 0.0;
+        // PT: split stop-wait time (scored at 7.16 euros/hr) from
+        // in-vehicle time (scored at activity-specific VTTS).
+        double waitSec = 0.0;
+        if (isPTMode(mode)
+                && !Double.isNaN(lastEnterVehicleTime)
+                && leg.getDepartureTime().isDefined()) {
+            double wait = lastEnterVehicleTime - leg.getDepartureTime().seconds();
+            if (wait > 0 && wait <= travelTimeSec) waitSec = wait;
+        }
+        lastEnterVehicleTime = Double.NaN; // one vehicle entry per leg
+        double inVehicleHr = (travelTimeSec - waitSec) / 3600.0;
+        double waitHr      = waitSec / 3600.0;
         // Travel time disutility
-        double legScore = -VTTSProvider.getVTTS(mode, nextAct) * travelTimeHr;
+        double legScore = -VTTSProvider.getVTTS(mode, nextAct) * inVehicleHr
+                        - PT_WAIT_VTTS * waitHr;
         // Car distance cost
         if ("car".equalsIgnoreCase(mode)
                 && leg.getRoute() != null

@@ -45,6 +45,7 @@ public class VTTSProvider {
             case "tram":
                 return getPTVTTS(category);
             case "car":
+            case "car_passenger": // same VTTS as car; operating cost applies to car only
                 return getCarVTTS(category);
             case "walk":
                 return getWalkVTTS(category);

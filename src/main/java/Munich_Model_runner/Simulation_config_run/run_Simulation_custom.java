@@ -4,9 +4,9 @@ import com.google.common.collect.Sets;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.TransportMode;
 import org.matsim.api.core.v01.network.Link;
-import org.matsim.contrib.bicycle.BicycleConfigGroup;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
+import org.matsim.core.config.groups.ChangeModeConfigGroup;
 import org.matsim.core.config.groups.PlanCalcScoreConfigGroup;
 import org.matsim.core.config.groups.StrategyConfigGroup;
 import org.matsim.core.config.groups.SubtourModeChoiceConfigGroup;
@@ -41,7 +41,8 @@ public class run_Simulation_custom {
         Config emptyConfig = ConfigUtils.createConfig();
         emptyConfig.global().setRandomSeed(4711);
         emptyConfig.global().setCoordinateSystem(TransformationFactory.GK4);
-        emptyConfig.addModule(new BicycleConfigGroup());
+        // bike is a plain teleported mode (see teleportedModeSpeed below);
+        // the bicycle contrib is intentionally NOT used.
         emptyConfig.plans().setInputFile(".\\scenarios\\Input_and_outputFile\\Other_input_and_output_file\\DemandTest06.xml");
         emptyConfig.network().setInputFile(".\\scenarios\\Input_and_outputFile\\Other_input_and_output_file\\mapped_network_baseline.xml");
         emptyConfig.transit().setUseTransit(true);
@@ -60,8 +61,11 @@ public class run_Simulation_custom {
         emptyConfig.planCalcScore().setLateArrival_utils_hr(-18);
         emptyConfig.planCalcScore().setEarlyDeparture_utils_hr(0);
         emptyConfig.planCalcScore().setPerforming_utils_hr(6);
-        emptyConfig.planCalcScore().setMarginalUtilityOfMoney(1.0);           // β_money = 1
-        emptyConfig.planCalcScore().setMarginalUtlOfWaiting_utils_hr(-7.16); // PT wait VTTS
+        emptyConfig.planCalcScore().setMarginalUtilityOfMoney(1.0); // β_money = 1
+        // PT wait VTTS (7.16 euros/hr) is scored in CustomLegScoring from
+        // events (departure -> vehicle entry), NOT via this config group —
+        // the default leg scoring that would read it is replaced anyway.
+        emptyConfig.planCalcScore().setMarginalUtlOfWaiting_utils_hr(0);
         // car_passenger is a NETWORK routing mode: legs are routed on the car
         // network using the congested car travel times of the previous
         // iteration (see travel time binding below). Because it is NOT a
@@ -150,27 +154,42 @@ public class run_Simulation_custom {
         // to car_passenger either (it is not an offered target mode).
         smc.setBehavior(SubtourModeChoice.Behavior.fromSpecifiedModesToSpecifiedModes);
 
+        // ── ChangeSingleTripMode config ────────────────────────────────────
+        // Restricted to NON-chain-based modes: a single trip may only flip
+        // between pt and walk. fromSpecifiedModesToSpecifiedModes means only
+        // trips CURRENTLY on pt/walk are candidates — car/bike chains stay
+        // intact and car_passenger stays locked.
+        ChangeModeConfigGroup changeMode = emptyConfig.changeMode();
+        changeMode.setModes(new String[] {"pt", "walk"});
+        changeMode.setBehavior(ChangeModeConfigGroup.Behavior.fromSpecifiedModesToSpecifiedModes);
+
         // ── Strategy ───────────────────────────────────────────────────────
-        // ReRoute 0.6  + SubtourModeChoice 0.2  + SelectRandom 0.2
-        // Innovation (ReRoute + SubtourModeChoice) disabled in last 20% of
-        // iterations so agents converge on their best-scoring plan.
+        // ReRoute 0.1 + ChangeSingleTripMode 0.05 + SubtourModeChoice 0.15
+        // + ChangeExpBeta 0.7 (score-based selector, uses brainExpBeta = 2).
+        // Innovation strategies disabled in last 20% of iterations;
+        // ChangeExpBeta then converges agents onto their best-scoring plans.
         emptyConfig.strategy().setMaxAgentPlanMemorySize(5);
         emptyConfig.strategy().setFractionOfIterationsToDisableInnovation(0.8);
 
         StrategyConfigGroup.StrategySettings reRoute = new StrategyConfigGroup.StrategySettings();
         reRoute.setStrategyName(DefaultPlanStrategiesModule.DefaultStrategy.ReRoute);
-        reRoute.setWeight(0.6);
+        reRoute.setWeight(0.1);
         emptyConfig.strategy().addStrategySettings(reRoute);
+
+        StrategyConfigGroup.StrategySettings changeSingleTripMode = new StrategyConfigGroup.StrategySettings();
+        changeSingleTripMode.setStrategyName(DefaultPlanStrategiesModule.DefaultStrategy.ChangeSingleTripMode);
+        changeSingleTripMode.setWeight(0.05);
+        emptyConfig.strategy().addStrategySettings(changeSingleTripMode);
 
         StrategyConfigGroup.StrategySettings subtourModeChoice = new StrategyConfigGroup.StrategySettings();
         subtourModeChoice.setStrategyName(DefaultPlanStrategiesModule.DefaultStrategy.SubtourModeChoice);
-        subtourModeChoice.setWeight(0.2);
+        subtourModeChoice.setWeight(0.15);
         emptyConfig.strategy().addStrategySettings(subtourModeChoice);
 
-        StrategyConfigGroup.StrategySettings selectRandom = new StrategyConfigGroup.StrategySettings();
-        selectRandom.setStrategyName(DefaultPlanStrategiesModule.DefaultSelector.SelectRandom);
-        selectRandom.setWeight(0.2);
-        emptyConfig.strategy().addStrategySettings(selectRandom);
+        StrategyConfigGroup.StrategySettings changeExpBeta = new StrategyConfigGroup.StrategySettings();
+        changeExpBeta.setStrategyName(DefaultPlanStrategiesModule.DefaultSelector.ChangeExpBeta);
+        changeExpBeta.setWeight(0.7);
+        emptyConfig.strategy().addStrategySettings(changeExpBeta);
         emptyConfig.controler().setOutputDirectory(".\\scenarios\\Input_and_outputFile\\Custom_output");
         emptyConfig.controler().setFirstIteration(0);
         emptyConfig.controler().setLastIteration(30);

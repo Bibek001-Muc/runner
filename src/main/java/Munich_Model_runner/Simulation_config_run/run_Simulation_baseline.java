@@ -4,7 +4,6 @@ import com.google.common.collect.Sets;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.TransportMode;
 import org.matsim.api.core.v01.network.Link;
-import org.matsim.contrib.bicycle.BicycleConfigGroup;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.config.groups.PlanCalcScoreConfigGroup;
@@ -29,7 +28,8 @@ public class run_Simulation_baseline {
         Config emptyConfig = ConfigUtils.createConfig();
         emptyConfig.global().setRandomSeed(4711);
         emptyConfig.global().setCoordinateSystem(TransformationFactory.GK4);
-        emptyConfig.addModule(new BicycleConfigGroup());
+        // bike is a plain teleported mode (see teleportedModeSpeed below);
+        // the bicycle contrib is intentionally NOT used.
         emptyConfig.plans().setInputFile(".\\scenarios\\Input_and_outputFile\\Other_input_and_output_file\\DemandTest06.xml");
         emptyConfig.network().setInputFile(".\\scenarios\\Input_and_outputFile\\Other_input_and_output_file\\mapped_network_baseline.xml");
         emptyConfig.transit().setUseTransit(true);
