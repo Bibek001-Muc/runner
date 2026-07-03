@@ -55,6 +55,10 @@ public class run_Simulation_custom {
         emptyConfig.qsim().setEndTime(7 * 24 * 3600); // 7-day weekly simulation
         emptyConfig.qsim().setSnapshotPeriod(0);
         emptyConfig.qsim().setMainModes(Sets.newHashSet("car"));
+        // Default TravelTimeCalculator maxTime is 30h — link travel times
+        // observed after hour 30 would be discarded, leaving days 2-7
+        // without congestion feedback. Extend to the full week.
+        emptyConfig.travelTimeCalculator().setMaxTime(7 * 24 * 3600);
         // ── Scoring globals ────────────────────────────────────────────────
         emptyConfig.planCalcScore().setLearningRate(1);
         emptyConfig.planCalcScore().setBrainExpBeta(2);
