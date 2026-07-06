@@ -43,14 +43,14 @@ public class run_Simulation_custom {
         emptyConfig.global().setCoordinateSystem(TransformationFactory.GK4);
         // bike is a plain teleported mode (see teleportedModeSpeed below);
         // the bicycle contrib is intentionally NOT used.
-        emptyConfig.plans().setInputFile(".\\scenarios\\Input_and_outputFile\\Other_input_and_output_file\\DemandTest06.xml");
-        emptyConfig.network().setInputFile(".\\scenarios\\Input_and_outputFile\\Other_input_and_output_file\\mapped_network_baseline.xml");
+        emptyConfig.plans().setInputFile("input/DemandTest06.xml");
+        emptyConfig.network().setInputFile("input/munichMultimodalMapped.xml.gz");
         emptyConfig.transit().setUseTransit(true);
-        emptyConfig.transit().setTransitScheduleFile(".\\scenarios\\Input_and_outputFile\\Other_input_and_output_file\\munichschedulemapped.xml");
-        emptyConfig.transit().setVehiclesFile(".\\scenarios\\Input_and_outputFile\\Other_input_and_output_file\\MunichVehicles.xml");
+        emptyConfig.transit().setTransitScheduleFile("input/MunichScheduleMapped.xml");
+        emptyConfig.transit().setVehiclesFile("input/MunichVehicles.xml");
         emptyConfig.transit().setTransitModes(Sets.newHashSet(TransportMode.pt));
-        emptyConfig.qsim().setFlowCapFactor(0.1);
-        emptyConfig.qsim().setStorageCapFactor(0.18);
+        emptyConfig.qsim().setFlowCapFactor(0.025);
+        emptyConfig.qsim().setStorageCapFactor(0.045);
         emptyConfig.qsim().setStartTime(0);
         emptyConfig.qsim().setEndTime(7 * 24 * 3600); // 7-day weekly simulation
         emptyConfig.qsim().setSnapshotPeriod(0);
@@ -196,7 +196,7 @@ public class run_Simulation_custom {
         emptyConfig.strategy().addStrategySettings(changeExpBeta);
         emptyConfig.controler().setOutputDirectory(".\\scenarios\\Input_and_outputFile\\Custom_output");
         emptyConfig.controler().setFirstIteration(0);
-        emptyConfig.controler().setLastIteration(150);
+        emptyConfig.controler().setLastIteration(50);
         emptyConfig.controler().setOverwriteFileSetting(
                 OutputDirectoryHierarchy.OverwriteFileSetting.deleteDirectoryIfExists);
         Scenario myScenario = ScenarioUtils.loadScenario(emptyConfig);
