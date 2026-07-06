@@ -4,6 +4,7 @@ import com.google.common.collect.Sets;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.TransportMode;
 import org.matsim.api.core.v01.network.Link;
+import org.matsim.api.core.v01.network.Network;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.config.groups.ChangeModeConfigGroup;
@@ -13,7 +14,10 @@ import org.matsim.core.config.groups.SubtourModeChoiceConfigGroup;
 import org.matsim.core.controler.AbstractModule;
 import org.matsim.core.controler.Controler;
 import org.matsim.core.controler.OutputDirectoryHierarchy;
+import org.matsim.core.network.NetworkUtils;
+import org.matsim.core.network.algorithms.TransportModeNetworkFilter;
 import org.matsim.core.population.algorithms.PermissibleModesCalculator;
+import org.matsim.core.population.algorithms.XY2Links;
 import org.matsim.core.replanning.modules.SubtourModeChoice;
 import org.matsim.core.replanning.strategies.DefaultPlanStrategiesModule;
 import org.matsim.core.scenario.ScenarioUtils;
@@ -200,6 +204,16 @@ public class run_Simulation_custom {
         emptyConfig.controler().setOverwriteFileSetting(
                 OutputDirectoryHierarchy.OverwriteFileSetting.deleteDirectoryIfExists);
         Scenario myScenario = ScenarioUtils.loadScenario(emptyConfig);
+
+        // Attach activities only to car-accessible links. Using the full
+        // multimodal network can attach them to artificial PT links, causing
+        // car trips to abort when their first road link is disconnected.
+        Network carNetwork = NetworkUtils.createNetwork();
+        new TransportModeNetworkFilter(myScenario.getNetwork())
+                .filter(carNetwork, Sets.newHashSet(TransportMode.car));
+        XY2Links carLinksForActivities = new XY2Links(carNetwork, myScenario.getActivityFacilities());
+        myScenario.getPopulation().getPersons().values().forEach(carLinksForActivities::run);
+
         // The router only considers links whose allowedModes contain the
         // routing mode. The network file only tags "car", so open every car
         // link to car_passenger — routing then follows the car network.
