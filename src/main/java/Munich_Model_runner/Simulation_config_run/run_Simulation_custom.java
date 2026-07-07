@@ -198,9 +198,9 @@ public class run_Simulation_custom {
         changeExpBeta.setStrategyName(DefaultPlanStrategiesModule.DefaultSelector.ChangeExpBeta);
         changeExpBeta.setWeight(0.7);
         emptyConfig.strategy().addStrategySettings(changeExpBeta);
-        emptyConfig.controler().setOutputDirectory(".\\scenarios\\Input_and_outputFile\\Custom_output");
+        emptyConfig.controler().setOutputDirectory(".\\scenarios\\Input_and_outputFile\\Custom0_output");
         emptyConfig.controler().setFirstIteration(0);
-        emptyConfig.controler().setLastIteration(50);
+        emptyConfig.controler().setLastIteration(100);
         emptyConfig.controler().setOverwriteFileSetting(
                 OutputDirectoryHierarchy.OverwriteFileSetting.deleteDirectoryIfExists);
         Scenario myScenario = ScenarioUtils.loadScenario(emptyConfig);
