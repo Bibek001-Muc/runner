@@ -144,29 +144,31 @@ public class run_Simulation_custom {
         ptInteraction.setScoringThisActivityAtAll(false);
         emptyConfig.planCalcScore().addActivityParams(ptInteraction);
         // ── SubtourModeChoice config ───────────────────────────────────────
-        // Agents can switch among {car, pt, bike, walk} on a per-subtour basis.
-        // chainBasedModes = {car, bike} → the mode of a subtour must return
-        //                   to its origin (you can't leave car/bike at work).
+        // Agents can switch among {car, pt, walk} on a per-subtour basis.
+        // chainBasedModes = {car} → the mode of a subtour must return
+        //                   to its origin (you can't leave the car at work).
         // considerCarAvailability = true → MATSim consults the bound
         //                   PermissibleModesCalculator (our custom one below)
         //                   to filter modes per agent. Agents without
         //                   driving_license cannot pick "car".
         SubtourModeChoiceConfigGroup smc = emptyConfig.subtourModeChoice();
-        smc.setModes(new String[] {"car", "pt", "bike", "walk"});
-        smc.setChainBasedModes(new String[] {"car", "bike"});
+        smc.setModes(new String[] {"car", "pt", "walk"});
+        smc.setChainBasedModes(new String[] {"car"});
         smc.setConsiderCarAvailability(true);
-        // Fixed car_passenger mode share: fromSpecifiedModesToSpecifiedModes
-        // means only subtours whose CURRENT mode is in the modes list above
-        // are candidates for a switch. car_passenger is not listed, so its
-        // legs are never converted to another mode, and no agent can switch
-        // to car_passenger either (it is not an offered target mode).
+        // Fixed car_passenger AND bike mode shares (same as the D-Ticket
+        // scenario, so the two runs differ ONLY in the fare system):
+        // fromSpecifiedModesToSpecifiedModes means only subtours whose
+        // CURRENT mode is in the modes list above are candidates for a
+        // switch. car_passenger and bike are not listed, so their legs are
+        // never converted to another mode, and no agent can switch onto
+        // them either (they are not offered target modes).
         smc.setBehavior(SubtourModeChoice.Behavior.fromSpecifiedModesToSpecifiedModes);
 
         // ── ChangeSingleTripMode config ────────────────────────────────────
         // Restricted to NON-chain-based modes: a single trip may only flip
         // between pt and walk. fromSpecifiedModesToSpecifiedModes means only
-        // trips CURRENTLY on pt/walk are candidates — car/bike chains stay
-        // intact and car_passenger stays locked.
+        // trips CURRENTLY on pt/walk are candidates — car chains stay
+        // intact and bike/car_passenger stay locked.
         ChangeModeConfigGroup changeMode = emptyConfig.changeMode();
         changeMode.setModes(new String[] {"pt", "walk"});
         changeMode.setBehavior(ChangeModeConfigGroup.Behavior.fromSpecifiedModesToSpecifiedModes);
